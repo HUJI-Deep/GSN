@@ -1,6 +1,7 @@
 """
 Adaptation of model.py from https://github.com/yaoli/GSN
-to create an inpainted dataset. 
+to handle input of masks marking missing data locations
+and inpaint MNIST dataset based on those.
 
 """
 
@@ -31,7 +32,7 @@ def save_single_image(x, y, (h,w),i, save_path ):
     
     im_name = ('%d_%d.png' % (y, i) )
     full_save_name = join(save_path,im_name ) 
-    imsave(full_save_name, img)
+    imsave(save_path, img)
     return full_save_name
 
 
@@ -683,22 +684,15 @@ def experiment(state, channel):
 
     # Inpainting
     print 'Inpainting'
-
-    valid_X  =   valid_X.get_value()    
-    val_idx    =   numpy.arange(len(valid_Y))
-    
-    valid_X = valid_X[val_idx]
-    val_dir = state.val_dir
+    md_dir = state.missing_data_dir
     save_path = state.save_path
 
-    raw_mask_data = numpy.loadtxt(os.path.join(val_dir,'index_mask.txt'),delimiter=' ',dtype=str)
+    raw_mask_data = numpy.loadtxt(os.path.join(md_dir,'index_mask.txt'),delimiter=' ',dtype=str)
+    image_data = numpy.loadtxt(os.path.join(md_dir,'index.txt'),delimiter=' ',dtype=str)
     total_images = raw_mask_data.shape[0]
-    print 'processing ',val_dir
+    print 'processing ',md_dir
     pbar = progressbar.ProgressBar(widgets=[progressbar.FormatLabel('\rProcessed %(value)d of %(max)d Images '), progressbar.Bar()], maxval=total_images, term_width=50).start()
 
-    
-
-    
 
     digit_idx = numpy.arange(total_images)
     inpaint_list = []
@@ -707,14 +701,15 @@ def experiment(state, channel):
     with open(join(save_path,'index.txt'),'wb') as db_file:
 
         for idx in digit_idx:
-            DIGIT = valid_X[idx:idx+1]
-            mask_im=load_image(os.path.join(val_dir,raw_mask_data[idx][0]),1).reshape(28*28).astype('uint8')
+            DIGIT = load_image(os.path.join(md_dir,image_data[idx][0]),1).reshape((1,28*28)).astype('uint8')
+            mask_im=load_image(os.path.join(md_dir,raw_mask_data[idx][0]),1).reshape(28*28).astype('uint8')
             noise_mask = (mask_im > 0) # since mask is 1 at missing locations
-            
             V_inpaint, H_inpaint = inpainting(DIGIT,noise_mask)
-            im_name = save_single_image(V_inpaint[-1],valid_Y[idx],(28,28),idx,save_path)
+            save_name = os.path.basename(image_data[idx][0].replace('corrupted','ip'))
+            full_save_path = os.path.join(save_path, save_name)
+            imsave(full_save_path, V_inpaint[-1].reshape((28,28)),)
             inpaint_list.append(V_inpaint)
-            db_file.write('%s %s\n' % ( os.path.basename(im_name), valid_Y[idx]))
+            db_file.write('%s %s\n' % ( save_name, image_data[idx][1]))
             pbar.update(idx)
         pbar.finish()
 
