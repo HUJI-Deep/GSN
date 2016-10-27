@@ -146,6 +146,23 @@ def load_tfd(path):
 
     return (train_X, labels[unlabeled]), (valid_X, labels[unlabeled][:100]), (test_X, labels[labeled])
 
+def load_norb_small(path):
+    tr_mat_file = os.path.join(path,'smallnorb-5x46789x9x18x6x2x96x96-training-dat.mat')
+    te_mat_file = os.path.join(path,'smallnorb-5x01235x9x18x6x2x96x96-testing-dat.mat')
+    with open(tr_mat_file, 'rb') as f:
+        data = f.read()
+        trX = np.fromstring(b[24:], dtype=np.uint8).reshape((24300,2,96,96))
+        trX = trX.astype('float32') / cast32(255)
+        del data
+    with open(te_mat_file, 'rb') as f:
+        data = f.read()
+        teX = np.fromstring(b[24:], dtype=np.uint8).reshape((24300,2,96,96))
+        teX = teX.astype('float32') / cast32(255)
+        del data
+    Y = np.tile(np.arange(5), (24300 / 5)) # samples arranged by class in cyclic order
+    return  (trX,Y), (teX,Y)
+
+
 def experiment(state, channel):
     if state.test_model and 'config' in os.listdir('.'):
         print 'Loading local config file'
@@ -701,7 +718,7 @@ def experiment(state, channel):
     with open(join(save_path,'index.txt'),'wb') as db_file:
 
         for idx in digit_idx:
-            DIGIT = load_image(os.path.join(md_dir,image_data[idx][0]),1).reshape((1,28*28)).astype('uint8')
+            DIGIT = load_image(os.path.join(md_dir,image_data[idx][0]),1).reshape((1,28*28)).astype('float32') / cast32(255)
             mask_im=load_image(os.path.join(md_dir,raw_mask_data[idx][0]),1).reshape(28*28).astype('uint8')
             noise_mask = (mask_im > 0) # since mask is 1 at missing locations
             V_inpaint, H_inpaint = inpainting(DIGIT,noise_mask)
